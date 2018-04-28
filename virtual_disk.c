@@ -13,7 +13,7 @@
 #define MAX_OPEN_FILES 64
 #define FNAME_LENGTH 16
 
-// Looks like RLIMT_FSIZE IS 1600 bytes
+// Looks like RLIMT_FSIZE IS 1600 byte
 int create_disk(char* filename, size_t nbytes)
 { 
   
