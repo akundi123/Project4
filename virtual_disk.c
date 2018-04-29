@@ -75,7 +75,6 @@ int write_block(int disk, int block_num, char *buf)
     bytes_written+= write(disk, buf, 1024);
   } 
 
-  //printf("Bytes written: %d\n", bytes_written);
   return bytes_written; 
 }
 
