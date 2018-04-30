@@ -16,7 +16,6 @@
 // Number of bytes for disk
 const size_t DISK_NBYTES = BLOCK_SIZE * MAX_BLOCKS;
 
-
 // Looks like RLIMT_FSIZE IS 1600 bytes
 int create_disk(char* filename, size_t nbytes)
 { 
@@ -37,8 +36,7 @@ int create_disk(char* filename, size_t nbytes)
       fwrite(zero , 1 , 1024 , fp );
     }  
   }
-  // Create super block
-    
+
   fclose(fp);
   return 0; // Disk Created Succesfully
   

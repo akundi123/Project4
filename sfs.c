@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdio.h>
 
-
 //First 5 blocks are root directory
 //5 - (MAX_BLOCKS- MAX_DATA_BLOCKS) is FAT
 //(MAX_BLOCKS- MAX_DATA_BLOCKS) - MAX_BLOCKS is data
@@ -10,7 +9,7 @@ char disk_mount[BLOCK_SIZE * MAX_BLOCKS];
 int disk_fd;
 
 // FAT table
-// Assuming Blocks 4096 - 3500 are used to store the file system
+// Assuming Blocks (4096 - 3500) are used to store the data
 // Only the last 3500 can be data blocks 
 // 0xFFFFFFFF is end of file
 // 0x00000000 is not allocated
@@ -26,7 +25,6 @@ typedef struct file{
 
 // Root directory
 int * file_allocation_table[MAX_DATA_BLOCKS] = {0x00000000};  // Set them all to free
-file_t inital = {.name="", .start_cluster=-1, .length=-1, .file_descriptor=-1}; 
 file_t root_directory[MAX_FILES];
 
 // Helpers //
@@ -56,6 +54,18 @@ int get_start_cluser(int file_descriptor)
     if(file_descriptor == root_directory[i].file_descriptor)
     {
       return root_directory[i].start_cluster;
+    }
+  }
+}
+
+int set_start_cluser(int file_descriptor, int start_cluster)
+{
+  for (int i = 0; i < MAX_FILES; i++)
+  {
+    if(file_descriptor == root_directory[i].file_descriptor)
+    {
+      root_directory[i].start_cluster = start_cluster;
+      return 0;
     }
   }
 }
@@ -113,7 +123,7 @@ file_t get_file(int file_descriptor)
 
 void print_root_directory()
 {
-for (int i = 0; i < MAX_FILES - 30; i++)
+  for (int i = 0; i < 10; i++)
   {
     file_t file = root_directory[i];
     printf("Name: %s, File Descriptor: %d, Start_Cluster:%d , Offest: %d \n",file.name, file.file_descriptor, file.start_cluster, file.offset);
@@ -155,10 +165,7 @@ int mount_sfs(char *disk_name)
   {
     read_block(disk_fd, i, disk_mount);
   }
-  
   return 0;
-  
-  
 }
 
 int umount_sfs(char *disk_name) 
@@ -178,7 +185,7 @@ int umount_sfs(char *disk_name)
 }
 
 
-// Access rotuines //
+// Access routines //
 int sfs_create(char *file_name)
 {
   if (strlen(file_name) > FNAME_LENGTH) return -1;
@@ -211,34 +218,32 @@ int sfs_close(int fd)
 
 int sfs_write(int fd, void *buf, size_t count)
 {
- //Get Amount of blocks needed to write
+  //Allocate space in file table
+  //Get earliest free  block
+  int cluster_start = earliest_free_block();
+  set_start_cluser(fd, cluster_start);
+  //Set the cluster_start to the first table
+  file_allocation_table[cluster_start] = cluster_start+1;
+  //Setting the end of file marker
+  file_allocation_table[cluster_start+1] = "0xFFFFFFFF";
  
- //Allocate space in file table
- //Get earliest free  block
- int cluster_start = earliest_free_block();
- //Set the cluster_start to the first table
- file_allocation_table[cluster_start] = cluster_start+1;
- //Setting the end of file marker
- file_allocation_table[cluster_start+1] = "0xFFFFFFFF";
- 
- //Write to each block
- write_block(disk_fd, cluster_start, buf);
- return 0;
+  //Write to each block
+  write_block(disk_fd, cluster_start, buf);
+  return 0;
 }
 
 int sfs_read(int fd, void *buf, size_t count)
 {
-
   // Look up start cluster in file table
   int start_cluster = get_start_cluser(fd);
-  //printf("Start cluster: %d\n", start_cluster);
+  
+  //Read the corresponding  block
   read_block(disk_fd, start_cluster, buf);
- 
 }
 
 int sfs_delete(char *file_name)
 {
-  //Reset the file to the blank state
+  //Reset the root to the blank state
   {
   for (int i = 0; i < MAX_FILES; i++)
   {
@@ -247,6 +252,7 @@ int sfs_delete(char *file_name)
     strcpy(root_directory[i].name, "");
     root_directory[i].start_cluster = 0;
     root_directory[i].length = 0;
+    root_directory[i].offset = 0;
     root_directory[i].file_descriptor = -1;
     return 0;
     }
