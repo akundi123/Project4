@@ -156,18 +156,6 @@ int mount_sfs(char *disk_name)
     read_block(disk_fd, i, disk_mount);
   }
   
-  //Read in the root directory and FAT to sfs variables
-  FILE *fp;
-  fp = fopen( "disk" , "r" );
-  fseek(fp, 0, SEEK_SET);
-  fread(root_directory, sizeof(file_t), MAX_FILES, fp);
-  fclose (fp);
-  //for( int i = 0; i < 1; i++)
-  //{
-   // char buf[BLOCK_SIZE];
-    //read_block(disk_fd, i, buf);
-    //root_directory = (struct file_t *) buf;
-  //}
   return 0;
   
   
@@ -184,20 +172,6 @@ int umount_sfs(char *disk_name)
     strncpy(buf, &disk_mount[BLOCK_SIZE * i], BLOCK_SIZE);
     write_block(disk_fd, i, buf);
   }
-  
-  
-  //Copy the root directory and FAT to disk mounted
-  FILE * fp;
-  fp = fopen( "disk" , "a+" );
-  fseek(fp, 0, SEEK_SET);
-  fwrite (root_directory, 1 , sizeof(root_directory), fp );
-  
-  //After 
-  fseek(fp, BLOCK_SIZE * 5, SEEK_SET);
-  fwrite (root_directory, 1 , sizeof(file_allocation_table[), fp );
-  
-  
-  fclose (fp); 
   
   //Close the disk
   return close_disk(disk_fd);
