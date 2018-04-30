@@ -7,6 +7,7 @@
 
 char DISK_NAME[5] = "disk"; //File name for disk
 char FILE1_NAME[10] = "FILE1.txt";
+char FILE2_NAME[10] = "FILE2.txt";
 
 void test_virtual_disk()
 {
@@ -27,11 +28,13 @@ void test_virtual_disk()
 
 void test_sfs()
 {
-  int res = make_sfs(DISK_NAME);
-  printf("make_sfs(): %d\n", res); //Showing output of make_sfs
-  
+  //int res = make_sfs(DISK_NAME);
+  //printf("make_sfs(): %d\n", res); //Showing output of make_sfs
+  int res;
   res = mount_sfs(DISK_NAME);
   printf("mount_sfs(): %d\n", res);
+  
+  print_root_directory(); 
  
   res = sfs_create(FILE1_NAME);
   printf("sfs_create(): %d\n", res);
@@ -56,9 +59,19 @@ void test_sfs()
   
   res = sfs_delete(FILE1_NAME);
   printf("sfs_delete: %d\n", res);
+ 
   
+  // Testing to see if File2.txt is still there when remounted
+  res = sfs_create(FILE2_NAME);
+  int file_descriptor2 = sfs_open(FILE2_NAME);
+  res = sfs_write(file_descriptor2, buf_write, 5);
+ 
   res = umount_sfs(DISK_NAME);
   printf("umount_sfs(): %d\n", res); 
+
+  res = mount_sfs(DISK_NAME);
+  printf("mount_sfs(): %d\n", res);
+  print_fat();
   
 }
 

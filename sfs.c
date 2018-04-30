@@ -2,10 +2,12 @@
 #include <string.h>
 #include <stdio.h>
 
+
+//First 5 blocks are root directory
+//5 - (MAX_BLOCKS- MAX_DATA_BLOCKS) is FAT
+//(MAX_BLOCKS- MAX_DATA_BLOCKS) - MAX_BLOCKS is data
 char disk_mount[BLOCK_SIZE * MAX_BLOCKS];
 int disk_fd;
-
-// Root directory
 
 // FAT table
 // Assuming Blocks 4096 - 3500 are used to store the file system
@@ -13,7 +15,7 @@ int disk_fd;
 // 0xFFFFFFFF is end of file
 // 0x00000000 is not allocated
 // File Descriptor can be 0 to MAX_FILES
-// Fiel Descriptor of -1 is not referneced
+// File Descriptor of -1 is not referneced
 typedef struct file{
   char name[FNAME_LENGTH];
   int start_cluster;
@@ -22,33 +24,15 @@ typedef struct file{
   int file_descriptor;
 } file_t;
 
-
+// Root directory
 int * file_allocation_table[MAX_DATA_BLOCKS] = {0x00000000};  // Set them all to free
 file_t inital = {.name="", .start_cluster=-1, .length=-1, .file_descriptor=-1}; 
 file_t root_directory[MAX_FILES];
 
-// Keep track of which blocks are used in the file
-typedef struct data_node{
-  int block_in_use;
-} data_node;
-
-// Linked list to keep track of files
-typedef struct file_node{
-    // Pointer to blocks that have data
-    
-    // The offest of the data node is current_file_offest % BLOCK_SIZE
-    int current_file_offest; 
-    struct file_node* next;
-} file_node;
-
-// Structure to impliment common operations
-
-file_node files; 
-
 // Helpers //
 int earliest_free_block()
 {
-  for (int i = 0; i < MAX_DATA_BLOCKS; i++)
+  for (int i = MAX_BLOCKS - MAX_DATA_BLOCKS; i < MAX_BLOCKS; i++)
   {
     if (file_allocation_table[i] == 0) return i;
   }
@@ -129,16 +113,16 @@ file_t get_file(int file_descriptor)
 
 void print_root_directory()
 {
-for (int i = 0; i < MAX_FILES; i++)
+for (int i = 0; i < MAX_FILES - 30; i++)
   {
     file_t file = root_directory[i];
-    printf("Name: %s, File Descriptor: %d, Offest: %d \n",file.name, file.file_descriptor, file.offset);
+    printf("Name: %s, File Descriptor: %d, Start_Cluster:%d , Offest: %d \n",file.name, file.file_descriptor, file.start_cluster, file.offset);
   }
 }
 
 void print_fat()
 {
-for (int i = 0; i < 5; i++)
+for (int i = MAX_BLOCKS - MAX_DATA_BLOCKS; i < MAX_BLOCKS - MAX_DATA_BLOCKS + 10; i++)
   {
     printf("I: %d, FAT[i]: %x\n", i, file_allocation_table[i]);
   }
@@ -165,20 +149,55 @@ int make_sfs(char *disk_name)
 
 int mount_sfs(char *disk_name)
 {
+  //open all blocks into memory
   disk_fd = open_disk(disk_name);
   for (int i = 0; i < 4096; i++)
   {
     read_block(disk_fd, i, disk_mount);
   }
   
+  //Read in the root directory and FAT to sfs variables
+  FILE *fp;
+  fp = fopen( "disk" , "r" );
+  fseek(fp, 0, SEEK_SET);
+  fread(root_directory, sizeof(file_t), MAX_FILES, fp);
+  fclose (fp);
+  //for( int i = 0; i < 1; i++)
+  //{
+   // char buf[BLOCK_SIZE];
+    //read_block(disk_fd, i, buf);
+    //root_directory = (struct file_t *) buf;
+  //}
   return 0;
-  //open all blocks into memory
+  
   
 }
 
 int umount_sfs(char *disk_name) 
 {
+  
   //Write from memory to disk
+  //For each block in disk mount write to the disk
+  for( int i = MAX_BLOCKS - MAX_DATA_BLOCKS; i < MAX_BLOCKS; i++)
+  {
+    char buf[BLOCK_SIZE];
+    strncpy(buf, &disk_mount[BLOCK_SIZE * i], BLOCK_SIZE);
+    write_block(disk_fd, i, buf);
+  }
+  
+  
+  //Copy the root directory and FAT to disk mounted
+  FILE * fp;
+  fp = fopen( "disk" , "a+" );
+  fseek(fp, 0, SEEK_SET);
+  fwrite (root_directory, 1 , sizeof(root_directory), fp );
+  
+  //After 
+  fseek(fp, BLOCK_SIZE * 5, SEEK_SET);
+  fwrite (root_directory, 1 , sizeof(file_allocation_table[), fp );
+  
+  
+  fclose (fp); 
   
   //Close the disk
   return close_disk(disk_fd);
@@ -189,9 +208,8 @@ int umount_sfs(char *disk_name)
 int sfs_create(char *file_name)
 {
   if (strlen(file_name) > FNAME_LENGTH) return -1;
- 
-  //Check if file is present
   
+  //Check if file is present
   //Make a new entry in the  root directory
   //Search for earliest open spot
   int earliest_free_index = earliest_file_available();
@@ -214,7 +232,6 @@ int sfs_open(char *file_name)
 int sfs_close(int fd)
 {
   //Free up file_descriptor (set file_descriptor to -1)
-  
   return close_file_descriptor(fd);
 }
 
@@ -231,9 +248,6 @@ int sfs_write(int fd, void *buf, size_t count)
  file_allocation_table[cluster_start+1] = "0xFFFFFFFF";
  
  //Write to each block
- //printf("fd%d",disk_fd);
- //fflush(stdout);
- 
  write_block(disk_fd, cluster_start, buf);
  return 0;
 }
@@ -266,6 +280,7 @@ int sfs_delete(char *file_name)
   return -1;
   }
 }
+
 int sfs_seek(int fd, int offset)
 {
   for (int i = 0; i < MAX_FILES; i++)
